@@ -16,6 +16,9 @@ COPY . .
 # Ensure uploads directory exists and set permissions
 RUN mkdir -p uploads && chmod 755 uploads
 
+# Set permissions for database and directory to be writable
+RUN chmod 755 /var/www/html && chmod 666 users.db
+
 # Expose port 80
 EXPOSE 80
 

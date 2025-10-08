@@ -1,6 +1,6 @@
 <?php
 // db.php - SQLite connection
-$db = new PDO("sqlite:../forms.db");
+$db = new PDO("sqlite:forms.db");
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // Forms table
