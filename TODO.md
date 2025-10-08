@@ -1,2 +1,5 @@
-- [x] Start PHP development server on localhost:8000
-- [ ] Open browser to http://localhost:8000 to demonstrate the running project
+- [x] Create Dockerfile for PHP project with Apache, enabling pdo_sqlite and curl extensions
+- [x] Copy project files to /var/www/html in container
+- [x] Set appropriate permissions for uploads and database files
+- [x] Expose port 80
+- [x] Ensure .env is handled (user needs to provide)
