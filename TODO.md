@@ -1,0 +1,2 @@
+- [x] Start PHP development server on localhost:8000
+- [ ] Open browser to http://localhost:8000 to demonstrate the running project
