@@ -34,8 +34,8 @@ if (empty($_SESSION['csrf_token'])) {
             <h1 class="title"><?= htmlspecialchars($form['name']) ?></h1>
             <div style="display:flex;align-items:center;gap:12px;">
                 <span class="small">Logged in as <?= htmlspecialchars($_SESSION['fullname'] ?? $_SESSION['username'] ?? '') ?></span>
-                <a class="link" href="forms.php">Back to Saved Forms</a>
-                <a class="link" href="logout.php">Logout</a>
+                <a class="btn" href="forms.php">Back to Saved Forms</a>
+                <a class="btn" href="logout.php">Logout</a>
             </div>
         </div>
 
