@@ -36,6 +36,11 @@ if (!empty($form['public_token'])) {
     <div class="container">
         <div class="card">
             <h1 class="title"><?= htmlspecialchars($form['name']) ?></h1>
+                <?php if (preg_match('/<input[^>]*type\s*=\s*["\']?file["\']?/i', $form['form_code'])) { ?>
+                <div class="small" style="margin-bottom:10px;color:#ef4444;font-weight:500;">
+                    Maximum file size per upload: 2MB. Only 2 files allowed per form.
+                </div>
+                <?php } ?>
                 <div class="form-preview">
                     <?php
                     // Ensure the stored form HTML contains a submit button so public users can submit.

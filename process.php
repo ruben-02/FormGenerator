@@ -64,10 +64,15 @@ function extract_text_from_file($path) {
     return null;
 }
 
+
 $form_id = $_POST['form_id'] ?? null;
 if (!$form_id) {
     die("Form ID missing in submission.");
 }
+
+// Get user id (username) from session if available
+session_start();
+$user_id = $_SESSION['username'] ?? 'guest';
 
 // Build submission array from POST (exclude form_id)
 $submissionArr = [];
@@ -81,9 +86,15 @@ if (!empty($_FILES)) {
     $uploadBase = __DIR__ . '/uploads';
     if (!is_dir($uploadBase)) mkdir($uploadBase, 0755, true);
 
-    $formDir = $uploadBase . '/' . intval($form_id);
+    // Isolate uploads by user id and form id
+    $userDir = $uploadBase . '/' . preg_replace('/[^A-Za-z0-9_\-.]/', '_', $user_id);
+    if (!is_dir($userDir)) mkdir($userDir, 0755, true);
+    $formDir = $userDir . '/' . intval($form_id);
     if (!is_dir($formDir)) mkdir($formDir, 0755, true);
 
+    $maxFileSize = 2 * 1024 * 1024; // 2MB
+
+    $totalFiles = 0;
     foreach ($_FILES as $fieldName => $info) {
         // Support multiple files per field
         if (is_array($info['name'])) {
@@ -91,10 +102,25 @@ if (!empty($_FILES)) {
             $count = count($info['name']);
             for ($i = 0; $i < $count; $i++) {
                 if ($info['error'][$i] !== UPLOAD_ERR_OK) continue;
+                if ($info['size'][$i] > $maxFileSize) {
+                    $submissionArr[$fieldName][] = [
+                        'error' => 'File too large (max 2MB)',
+                        'filename' => $info['name'][$i]
+                    ];
+                    continue;
+                }
+                if ($totalFiles >= 2) {
+                    $submissionArr[$fieldName][] = [
+                        'error' => 'Only 2 files allowed per form',
+                        'filename' => $info['name'][$i]
+                    ];
+                    continue;
+                }
                 $orig = $info['name'][$i];
                 $tmp  = $info['tmp_name'][$i];
                 $safe = preg_replace('/[^A-Za-z0-9_\-.]/', '_', basename($orig));
-                $target = $formDir . '/' . time() . "_{$i}_" . $safe;
+                $unique = uniqid($user_id . '_', true);
+                $target = $formDir . '/' . $unique . "_{$i}_" . $safe;
                 if (move_uploaded_file($tmp, $target)) {
                     $mime = mime_content_type($target) ?: 'application/octet-stream';
                     $entry = [
@@ -110,14 +136,30 @@ if (!empty($_FILES)) {
                         $entry['text'] = mb_substr($txt, 0, 100 * 1024);
                     }
                     $submissionArr[$fieldName][] = $entry;
+                    $totalFiles++;
                 }
             }
         } else {
             if ($info['error'] === UPLOAD_ERR_OK) {
+                if ($info['size'] > $maxFileSize) {
+                    $submissionArr[$fieldName] = [
+                        'error' => 'File too large (max 2MB)',
+                        'filename' => $info['name']
+                    ];
+                    continue;
+                }
+                if ($totalFiles >= 2) {
+                    $submissionArr[$fieldName] = [
+                        'error' => 'Only 2 files allowed per form',
+                        'filename' => $info['name']
+                    ];
+                    continue;
+                }
                 $orig = $info['name'];
                 $tmp  = $info['tmp_name'];
                 $safe = preg_replace('/[^A-Za-z0-9_\-.]/', '_', basename($orig));
-                $target = $formDir . '/' . time() . '_' . $safe;
+                $unique = uniqid($user_id . '_', true);
+                $target = $formDir . '/' . $unique . '_' . $safe;
                 if (move_uploaded_file($tmp, $target)) {
                     $mime = mime_content_type($target) ?: 'application/octet-stream';
                     $entry = [
@@ -131,6 +173,7 @@ if (!empty($_FILES)) {
                         $entry['text'] = mb_substr($txt, 0, 100 * 1024);
                     }
                     $submissionArr[$fieldName] = $entry;
+                    $totalFiles++;
                 }
             }
         }

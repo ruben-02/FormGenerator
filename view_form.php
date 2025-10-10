@@ -40,6 +40,11 @@ if (empty($_SESSION['csrf_token'])) {
         </div>
 
         <div class="card">
+            <?php if (preg_match('/<input[^>]*type\s*=\s*["\']?file["\']?/i', $form['form_code'])) { ?>
+            <div class="small" style="margin-bottom:10px;color:#ef4444;font-weight:500;">
+                Maximum file size per upload: 2MB. Only 2 files allowed per form.
+            </div>
+            <?php } ?>
             <div class="form-preview">
                 <?= $form['form_code'] ?>
             </div>

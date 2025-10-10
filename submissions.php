@@ -8,6 +8,30 @@ if (!$form_id) {
     die("Form ID missing.");
 }
 
+// AJAX endpoint for submissions list
+if (isset($_GET['list']) && $_GET['list'] == '1') {
+    $stmt = $db->prepare("SELECT id, created_at FROM form_submissions WHERE form_id = ? ORDER BY created_at DESC");
+    $stmt->execute([$form_id]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    header('Content-Type: application/json');
+    echo json_encode($rows);
+    exit;
+}
+// AJAX endpoint for single submission view
+if (isset($_GET['view']) && is_numeric($_GET['view'])) {
+    $sub_id = intval($_GET['view']);
+    $stmt = $db->prepare("SELECT submission FROM form_submissions WHERE id = ? AND form_id = ?");
+    $stmt->execute([$sub_id, $form_id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $data = [];
+    if ($row && $row['submission']) {
+        $data = json_decode($row['submission'], true);
+    }
+    header('Content-Type: application/json');
+    echo json_encode($data);
+    exit;
+}
+
 $stmt = $db->prepare("SELECT name FROM forms WHERE id = ?");
 $stmt->execute([$form_id]);
 $form = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -61,7 +85,6 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
     exit;
 }
 ?>
-<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -87,13 +110,29 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
             <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
                 <?php if ($count > 0): ?>
                     <button id="download-csv" class="btn">Download CSV</button>
+                    <button id="view-submissions" class="btn secondary">View Submissions</button>
                 <?php else: ?>
                     <button class="btn secondary" disabled>No submissions</button>
                 <?php endif; ?>
                 <a class="link" href="forms.php">Back to Saved Forms</a>
             </div>
             <div id="msg" style="margin-top:12px;display:none;color:green">CSV download started.</div>
-            
+
+            <!-- Submissions List Modal -->
+            <div id="submissions-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
+                <div style="background:white;padding:24px;border-radius:10px;min-width:340px;max-width:90vw;max-height:80vh;overflow:auto;">
+                    <h3>Submissions List</h3>
+                    <button id="close-modal" class="btn secondary" style="float:right;margin-top:-32px;">Close</button>
+                    <table style="width:100%;margin-top:18px;border-collapse:collapse;">
+                        <thead>
+                            <tr><th>ID</th><th>Date</th><th>View</th></tr>
+                        </thead>
+                        <tbody id="submissions-list"></tbody>
+                    </table>
+                    <div id="submission-detail" style="margin-top:24px;"></div>
+                </div>
+            </div>
+
             <!-- Chatbot UI -->
             <div class="card" style="margin-top:18px;">
                 <h3>Query submissions (Chat)</h3>
@@ -108,6 +147,7 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
                         <div style="display:flex;gap:8px;align-items:center">
                             <button id="chat-send" class="btn">Submit</button>
                             <button id="chat-clear" class="btn secondary" type="button">Clear</button>
+                            <button id="chat-download" class="btn secondary" type="button">Download Chat</button>
                             <span class="small" id="chat-status" style="margin-left:8px;color:var(--muted)"></span>
                         </div>
                     </div>
@@ -132,14 +172,71 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
                         setTimeout(()=>{ if (msg) msg.style.display='none'; }, 5000);
                     });
                 }
+
+                // View Submissions Modal
+                const viewBtn = document.getElementById('view-submissions');
+                const modal = document.getElementById('submissions-modal');
+                const closeModal = document.getElementById('close-modal');
+                const listBody = document.getElementById('submissions-list');
+                const detailDiv = document.getElementById('submission-detail');
+
+                if (viewBtn && modal) {
+                    viewBtn.addEventListener('click', function(){
+                        modal.style.display = 'flex';
+                        detailDiv.innerHTML = '';
+                        // Fetch submissions list via AJAX
+                        fetch('submissions.php?form_id=<?= $form_id ?>&list=1')
+                            .then(r => r.json())
+                            .then(data => {
+                                listBody.innerHTML = '';
+                                if (Array.isArray(data)) {
+                                    data.forEach(function(sub){
+                                        const tr = document.createElement('tr');
+                                        tr.innerHTML = `<td>${sub.id}</td><td>${sub.created_at}</td><td><button class="btn" data-id="${sub.id}" title="View"><span style="font-size:18px;">&#128065;</span></button></td>`;
+                                        listBody.appendChild(tr);
+                                    });
+                                    // Add click event for eye buttons
+                                    Array.from(listBody.querySelectorAll('button[data-id]')).forEach(function(btn){
+                                        btn.addEventListener('click', function(){
+                                            const subId = btn.getAttribute('data-id');
+                                            fetch('submissions.php?form_id=<?= $form_id ?>&view=' + subId)
+                                                .then(r => r.json())
+                                                .then(data => {
+                                                    // Render submission as table
+                                                    if (data && typeof data === 'object') {
+                                                        let html = '<h4>Submission #' + subId + '</h4><table style="width:100%;border-collapse:collapse;margin-top:8px;">';
+                                                        html += '<thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>';
+                                                        Object.keys(data).forEach(function(k){
+                                                            html += `<tr><td>${k}</td><td>${data[k]}</td></tr>`;
+                                                        });
+                                                        html += '</tbody></table>';
+                                                        detailDiv.innerHTML = html;
+                                                    } else {
+                                                        detailDiv.innerHTML = '<div class="small">No data found.</div>';
+                                                    }
+                                                });
+                                        });
+                                    });
+                                }
+                            });
+                    });
+                }
+                if (closeModal && modal) {
+                    closeModal.addEventListener('click', function(){
+                        modal.style.display = 'none';
+                        detailDiv.innerHTML = '';
+                    });
+                }
             })();
-            
+
             (function(){
                 const send = document.getElementById('chat-send');
                 const clear = document.getElementById('chat-clear');
+                const download = document.getElementById('chat-download');
                 const input = document.getElementById('chat-input');
                 const history = document.getElementById('chat-history');
                 const status = document.getElementById('chat-status');
+                let lastBotAnswer = '';
 
                 function appendMessage(who, text){
                     const el = document.createElement('div');
@@ -182,16 +279,19 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
                             if (sendBtn) sendBtn.disabled = false;
                             if (data && data.answer) {
                                 appendMessage('bot', data.answer);
+                                lastBotAnswer = data.answer;
                                 status.textContent = 'Done';
                                 setTimeout(()=>{ status.textContent=''; }, 3000);
                             } else {
                                 appendMessage('bot', 'No answer (error).');
+                                lastBotAnswer = '';
                                 status.textContent = '';
                             }
                         }).catch(err => {
                             if (processing) processing.style.display = 'none';
                             if (sendBtn) sendBtn.disabled = false;
                             appendMessage('bot', 'Error: ' + err.message);
+                            lastBotAnswer = '';
                             status.textContent = '';
                         });
                     });
@@ -201,12 +301,28 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
                     clear.addEventListener('click', function(){
                         history.innerHTML = '';
                         input.value = '';
+                        lastBotAnswer = '';
                         status.textContent = '';
+                    });
+                }
+
+                if (download) {
+                    download.addEventListener('click', function(){
+                        if (!lastBotAnswer) {
+                            alert('No chat result to download.');
+                            return;
+                        }
+                        // Prepare CSV content
+                        const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent('Result\n"' + lastBotAnswer.replace(/"/g, '""') + '"');
+                        const link = document.createElement('a');
+                        link.setAttribute('href', csvContent);
+                        link.setAttribute('download', 'chat_result.csv');
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
                     });
                 }
             })();
             </script>
         </div>
-    </div>
-</body>
-</html>
+

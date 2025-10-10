@@ -12,11 +12,18 @@ if (empty($GEMINI_MODEL)) {
     die("<p>Error: GEMINI_MODEL not set in .env</p>");
 }
 
+
 $form_name = $_POST['form_name'] ?? '';
 $prompt    = $_POST['prompt'] ?? '';
+$refine    = $_POST['refine'] ?? '';
 
 if (empty($form_name) || empty($prompt)) {
     die("<p>Error: form_name or prompt missing.</p>");
+}
+
+// If refine prompt is provided, append it to the user prompt
+if (!empty($refine)) {
+    $prompt .= "\nRefinement: " . $refine;
 }
 
 $system_prompt = <<<EOT
@@ -63,6 +70,9 @@ if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
     $form_code = preg_replace('/```(?:html)?/', '', $form_code);
     $form_code = trim($form_code);
 
+    // Remove all required attributes so fields are not mandatory
+    $form_code = preg_replace('/\srequired(\s*|(?=>))/i', '', $form_code);
+
     // Remove submit buttons/inputs from the preview so the generated form
     // doesn't submit from the preview page. We'll keep a flag to notify the user.
     $removed_submit = false;
@@ -108,8 +118,35 @@ if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
             <h1 class="title">Preview: <?= htmlspecialchars($form_name) ?></h1>
             <a class="btn" href="forms.php">Back to Forms</a>
         </div>
+          <!-- Refine prompt UI -->
+            <form id="refine-form" method="post" action="generate.php" style="margin-bottom:18px;">
+                <input type="hidden" name="form_name" value="<?= htmlspecialchars($form_name) ?>">
+                <input type="hidden" name="prompt" value="<?= htmlspecialchars($_POST['prompt'] ?? $prompt) ?>">
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="text" name="refine" id="refine-input" placeholder="Refine the form (e.g. add/remove fields)" style="flex:1;padding:8px;border-radius:6px;border:1px solid #dbe7f5;">
+                    <button id="refine-btn" class="btn" type="submit">Refine</button>
+                </div>
+            </form>
+            <!-- processing overlay for refine -->
+            <div id="processing-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);align-items:center;justify-content:center;z-index:9999">
+                <div style="background:white;padding:20px;border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:12px;min-width:220px">
+                    <svg width="36" height="36" viewBox="0 0 50 50" style="animation:spin 1s linear infinite"><circle cx="25" cy="25" r="20" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" stroke-dasharray="31.4 31.4"/></svg>
+                    <div style="font-weight:600">Refining...</div>
+                    <div class="small">This may take a few seconds.</div>
+                </div>
+            </div>
 
         <div class="card">
+           
+
+            <?php
+            $hasFileUpload = stripos($form_code, '<input') !== false && stripos($form_code, 'type="file"') !== false;
+            if (preg_match('/<input[^>]*type\s*=\s*["\']?file["\']?/i', $form_code)) {
+            ?>
+            <div class="small" style="margin-bottom:10px;color:#ef4444;font-weight:500;">
+                Maximum file size per upload: 2MB. Only 2 files allowed per form.
+            </div>
+            <?php } ?>
             <div class="form-preview">
                 <?= $form_code ?>
             </div>
@@ -126,6 +163,7 @@ if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
 
             <script>
             (function(){
+                // Save form AJAX
                 const form = document.getElementById('save-form');
                 form.addEventListener('submit', function(e){
                     e.preventDefault();
@@ -154,6 +192,17 @@ if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
                         btn.disabled = false;
                     });
                 });
+
+                // Refine overlay
+                const refineForm = document.getElementById('refine-form');
+                const overlay = document.getElementById('processing-overlay');
+                const refineBtn = document.getElementById('refine-btn');
+                if (refineForm && overlay && refineBtn) {
+                    refineForm.addEventListener('submit', function(e){
+                        if (overlay) overlay.style.display = 'flex';
+                        if (refineBtn) refineBtn.disabled = true;
+                    });
+                }
             })();
             </script>
         </div>

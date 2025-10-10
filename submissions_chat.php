@@ -99,9 +99,27 @@ if (!$json) {
     exit;
 }
 
+
 $answer = null;
+$sql_result = null;
 if (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
     $answer = $json['candidates'][0]['content']['parts'][0]['text'];
+
+    // Try to extract SQL query from the answer (look for ```sql ... ``` block)
+    if (preg_match('/```sql\s*(.*?)```/is', $answer, $m)) {
+        $sql = trim($m[1]);
+        // Only allow SELECT queries for safety
+        if (stripos($sql, 'select') === 0) {
+            try {
+                $stmt = $db->query($sql);
+                $sql_result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $ex) {
+                $sql_result = 'SQL Error: ' . $ex->getMessage();
+            }
+        } else {
+            $sql_result = 'Only SELECT queries are allowed.';
+        }
+    }
 } elseif (isset($json['error'])) {
     http_response_code(500);
     echo json_encode(['error' => $json['error']]);
@@ -111,7 +129,7 @@ if (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
 }
 
 header('Content-Type: application/json');
-echo json_encode(['answer' => $answer]);
+echo json_encode(['answer' => $answer, 'sql_result' => $sql_result]);
 exit;
 
 ?>
