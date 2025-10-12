@@ -21,9 +21,20 @@ if (empty($form_name) || empty($prompt)) {
     die("<p>Error: form_name or prompt missing.</p>");
 }
 
-// If refine prompt is provided, append it to the user prompt
-if (!empty($refine)) {
-    $prompt .= "\nRefinement: " . $refine;
+// If refine prompt is provided, use context caching to modify the existing form
+$prev_form_code = $_POST['prev_form_code'] ?? '';
+if (!empty($refine) && !empty($prev_form_code)) {
+    $system_prompt = <<<EOT
+You are an expert HTML form generator.
+Rules:
+- Always output a single complete <form> element, with action="process.php" and method="post".
+- Always include a hidden <input type="hidden" name="form_id" value="TEMP_ID">.
+- Add fields exactly as requested by the user (text, email, password, textarea, select, radio, checkbox, file upload, date, etc).
+- Include <label> elements for accessibility.
+- Do not add CSS or JavaScript, just raw HTML form.
+- If a previous form HTML is provided, modify it according to the refinement instructions, do not generate a new form from scratch.
+EOT;
+    $prompt = "Original prompt: " . ($_POST['prompt'] ?? $prompt) . "\nPrevious form HTML:\n" . $prev_form_code . "\nRefinement: " . $refine;
 }
 
 $system_prompt = <<<EOT
@@ -70,8 +81,25 @@ if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
     $form_code = preg_replace('/```(?:html)?/', '', $form_code);
     $form_code = trim($form_code);
 
+
     // Remove all required attributes so fields are not mandatory
     $form_code = preg_replace('/\srequired(\s*|(?=>))/i', '', $form_code);
+
+    // Enforce phone number format: digits only, no dashes or spaces
+    // Replace <input type="tel" ...> with pattern="\\d{10,15}" and inputmode="numeric"
+    $form_code = preg_replace_callback(
+        '/<input([^>]*type\s*=\s*["\']?tel["\']?[^>]*)>/i',
+        function($m) {
+            $input = $m[1];
+            // Remove any pattern or inputmode attributes
+            $input = preg_replace('/\s*pattern\s*=\s*"[^"]*"/i', '', $input);
+            $input = preg_replace('/\s*inputmode\s*=\s*"[^"]*"/i', '', $input);
+            // Add pattern and inputmode for digits only
+            $input .= ' pattern="\\d{10,15}" inputmode="numeric"';
+            return '<input' . $input . '>';
+        },
+        $form_code
+    );
 
     // Remove submit buttons/inputs from the preview so the generated form
     // doesn't submit from the preview page. We'll keep a flag to notify the user.
@@ -122,6 +150,7 @@ if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
             <form id="refine-form" method="post" action="generate.php" style="margin-bottom:18px;">
                 <input type="hidden" name="form_name" value="<?= htmlspecialchars($form_name) ?>">
                 <input type="hidden" name="prompt" value="<?= htmlspecialchars($_POST['prompt'] ?? $prompt) ?>">
+                <input type="hidden" name="prev_form_code" value="<?= htmlspecialchars($form_code) ?>">
                 <div style="display:flex;gap:8px;align-items:center;">
                     <input type="text" name="refine" id="refine-input" placeholder="Refine the form (e.g. add/remove fields)" style="flex:1;padding:8px;border-radius:6px;border:1px solid #dbe7f5;">
                     <button id="refine-btn" class="btn" type="submit">Refine</button>

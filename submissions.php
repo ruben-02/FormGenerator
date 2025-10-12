@@ -87,10 +87,13 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
 ?>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Submissions for <?= htmlspecialchars($form['name']) ?></title>
-    <link rel="stylesheet" href="assets/css/style.css">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>Submissions for <?= htmlspecialchars($form['name']) ?></title>
+        <link rel="stylesheet" href="assets/css/style.css">
+        <style>
+            html { font-size: 15px; }
+        </style>
 </head>
 <body>
     <div class="container">
@@ -99,6 +102,7 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
             <div style="display:flex;align-items:center;gap:12px;">
                 <span class="small">Logged in as <?= htmlspecialchars($_SESSION['fullname'] ?? $_SESSION['username'] ?? '') ?></span>
                 <a class="btn" href="index.php">Create New Forms</a>
+             
                 <a class="btn" href="logout.php">Logout</a>
             </div>
         </div>
@@ -114,7 +118,7 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
                 <?php else: ?>
                     <button class="btn secondary" disabled>No submissions</button>
                 <?php endif; ?>
-                <a class="link" href="forms.php">Back to Saved Forms</a>
+                <a class="btn" href="forms.php">Back to Saved Forms</a>
             </div>
             <div id="msg" style="margin-top:12px;display:none;color:green">CSV download started.</div>
 
@@ -207,7 +211,33 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
                                                         let html = '<h4>Submission #' + subId + '</h4><table style="width:100%;border-collapse:collapse;margin-top:8px;">';
                                                         html += '<thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>';
                                                         Object.keys(data).forEach(function(k){
-                                                            html += `<tr><td>${k}</td><td>${data[k]}</td></tr>`;
+                                                            let val = data[k];
+                                                            // If value is an object (likely file upload), show file name(s) and view link
+                                                            if (val && typeof val === 'object') {
+                                                                if (Array.isArray(val)) {
+                                                                    val = val.map(f => {
+                                                                        if (f && f.filename && f.stored) {
+                                                                            // Build view link
+                                                                            let url = f.stored.replace(/^\/+/, '');
+                                                                            return `<a href="${url}" target="_blank">${f.filename}</a>`;
+                                                                        } else if (f && f.filename) {
+                                                                            return f.filename;
+                                                                        } else if (typeof f === 'string') {
+                                                                            return f;
+                                                                        } else {
+                                                                            return '[unknown]';
+                                                                        }
+                                                                    }).join(', ');
+                                                                } else if (val.filename && val.stored) {
+                                                                    let url = val.stored.replace(/^\/+/, '');
+                                                                    val = `<a href="${url}" target="_blank">${val.filename}</a>`;
+                                                                } else if (val.filename) {
+                                                                    val = val.filename;
+                                                                } else {
+                                                                    val = '[object]';
+                                                                }
+                                                            }
+                                                            html += `<tr><td>${k}</td><td>${val}</td></tr>`;
                                                         });
                                                         html += '</tbody></table>';
                                                         detailDiv.innerHTML = html;

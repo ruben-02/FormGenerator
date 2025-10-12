@@ -43,11 +43,25 @@ if (!empty($form['public_token'])) {
                 <?php } ?>
                 <div class="form-preview">
                     <?php
+                    // Remove all required attributes so fields are not mandatory
+                    $form_html = preg_replace('/\srequired(\s*|(?=>))/i', '', $form['form_code']);
+                    // Enforce phone number format: digits only, no dashes or spaces
+                    $form_html = preg_replace_callback(
+                        '/<input([^>]*type\s*=\s*["\']?tel["\']?[^>]*)>/i',
+                        function($m) {
+                            $input = $m[1];
+                            $input = preg_replace('/\s*pattern\s*=\s*"[^"]*"/i', '', $input);
+                            $input = preg_replace('/\s*inputmode\s*=\s*"[^"]*"/i', '', $input);
+                            $input .= ' pattern="\\d{10,15}" inputmode="numeric"';
+                            return '<input' . $input . '>';
+                        },
+                        $form_html
+                    );
                     // Ensure the stored form HTML contains a submit button so public users can submit.
                     libxml_use_internal_errors(true);
                     $doc = new DOMDocument();
                     // Wrap to parse fragment
-                    $doc->loadHTML('<?xml encoding="utf-8" ?><div id="root">' . $form['form_code'] . '</div>');
+                    $doc->loadHTML('<?xml encoding="utf-8" ?><div id="root">' . $form_html . '</div>');
                     $xpath = new DOMXPath($doc);
 
                     $formEl = $xpath->query('//*[@id="root"]//form')->item(0);
@@ -93,7 +107,7 @@ if (!empty($form['public_token'])) {
                         }
                         echo $out;
                     } else {
-                        echo $form['form_code'];
+                        echo $form_html;
                     }
                     libxml_clear_errors();
                     ?>

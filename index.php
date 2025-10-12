@@ -13,6 +13,7 @@
             <h1 class="title">AI Form Generator</h1>
             <div style="display:flex;align-items:center;gap:12px;">
                 <span class="small">Logged in as <?= htmlspecialchars($_SESSION['fullname'] ?? $_SESSION['username'] ?? '') ?></span>
+                <a class="new-btn" href="index.php">Create New Forms</a>
                 <a class="new-btn" href="forms.php">View Saved Forms</a>
                 <a class="new-btn" href="logout.php">Logout</a>
             </div>
