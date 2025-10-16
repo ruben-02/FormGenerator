@@ -140,12 +140,13 @@ if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Form Preview</title>
     <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/index-buttons.css">
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1 class="title">Preview: <?= htmlspecialchars($form_name) ?></h1>
-            <a class="btn" href="forms.php">Back to Forms</a>
+            <a class="new-btn" href="forms.php">Back to Forms</a>
         </div>
           <!-- Refine prompt UI -->
             <form id="refine-form" method="post" action="generate.php" style="margin-bottom:18px;">
@@ -155,7 +156,7 @@ if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
                 <input type="hidden" name="prev_form_code" value="<?= htmlspecialchars($form_code) ?>">
                 <div style="display:flex;gap:8px;align-items:center;">
                     <input type="text" name="refine" id="refine-input" placeholder="Refine the form (e.g. add/remove fields)" style="flex:1;padding:8px;border-radius:6px;border:1px solid #dbe7f5;">
-                    <button id="refine-btn" class="btn" type="submit">Refine</button>
+                    <button id="refine-btn" class="new-btn" type="submit">Refine</button>
                 </div>
             </form>
             <!-- processing overlay for refine -->

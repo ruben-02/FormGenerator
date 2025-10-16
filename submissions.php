@@ -178,12 +178,12 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
 
             <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
                 <?php if ($count > 0): ?>
-                    <button id="download-csv" class="btn">Download CSV</button>
+                    <button id="download-csv" class="new-btn">Download CSV</button>
                     <button id="view-submissions" class="btn secondary">View Submissions</button>
                 <?php else: ?>
                     <button class="btn secondary" disabled>No submissions</button>
                 <?php endif; ?>
-                <a class="btn" href="forms.php">Back to Saved Forms</a>
+                <a class="new-btn" href="forms.php">Back to Saved Forms</a>
             </div>
             <div id="msg" style="margin-top:12px;display:none;color:green">CSV download started.</div>
 
@@ -214,7 +214,7 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
                     <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
                         <textarea id="chat-input" placeholder="Ask about the submissions (e.g., 'How many submitted yes to question X?')" style="width:100%;min-height:100px;padding:12px;border-radius:8px;border:1px solid #dbe7f5"></textarea>
                         <div style="display:flex;gap:8px;align-items:center">
-                            <button id="chat-send" class="btn">Submit</button>
+                            <button id="chat-send" class="new-btn">Submit</button>
                             <button id="chat-clear" class="btn secondary" type="button">Clear</button>
                             <button id="chat-download" class="btn secondary" type="button">Download Chat</button>
                             <span class="small" id="chat-status" style="margin-left:8px;color:var(--muted)"></span>

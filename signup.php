@@ -34,31 +34,32 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Signup</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
-<div class="container" style="max-width:400px; margin-top:80px;">
-<h2 class="mb-4">Signup</h2>
-<?php if($error): ?>
-    <div class="alert alert-danger"><?php echo $error; ?></div>
-<?php endif; ?>
-<form method="POST">
-    <div class="mb-3">
-        <label class="form-label">Full Name</label>
-        <input type="text" class="form-control" name="fullname" required>
+<div class="login-wrapper">
+    <div class="login-container">
+        <div class="login-top">
+            <img src="assets/logo512.png" alt="SmartCard AI" class="login-logo-img">
+            <div class="login-brand">SmartCard AI</div>
+            <div class="login-sub">AI Form Generator</div>
+        </div>
+
+        <?php if($error): ?>
+            <div style="background:#ffebee;color:#b71c1c;padding:10px;border-radius:8px;margin-bottom:12px;text-align:center"><?php echo htmlspecialchars($error); ?></div>
+        <?php endif; ?>
+
+        <form method="POST" class="login-form">
+            <input class="login-input" name="fullname" type="text" placeholder="Full name" required>
+            <input class="login-input" name="username" type="email" placeholder="Email or username" required>
+            <input class="login-input" name="password" type="password" placeholder="Password" required>
+            <button class="login-submit" type="submit">Signup</button>
+        </form>
+
+        <div class="login-note">Already have an account? <a href="login.php">Login here</a></div>
     </div>
-    <div class="mb-3">
-        <label class="form-label">Email / Username</label>
-        <input type="email" class="form-control" name="username" required>
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Password</label>
-        <input type="password" class="form-control" name="password" required>
-    </div>
-    <button class="btn btn-primary w-100" type="submit">Signup</button>
-    <p class="mt-2">Already have an account? <a href="login.php">Login here</a></p>
-</form>
 </div>
 </body>
 </html>

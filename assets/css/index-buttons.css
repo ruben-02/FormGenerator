@@ -18,7 +18,7 @@ body { --index-btn-bg: #000; --index-btn-color: #fff; }
 }
 
 /* Modal connect button */
-#mysql-connect {
+#mysql-connect,#refine-btn {
     background: var(--index-btn-bg) !important;
     color: var(--index-btn-color) !important;
     border: none !important;
@@ -32,3 +32,13 @@ body { --index-btn-bg: #000; --index-btn-color: #fff; }
 /* Hover/focus */
 .header .new-btn:hover, .card form .btn:hover, #mysql-connect:hover { opacity:0.92 }
 .header .new-btn:focus, .card form .btn:focus, #mysql-connect:focus { outline:3px solid rgba(0,0,0,0.12); outline-offset:2px }
+
+
+.card .new-btn {
+    background: var(--index-btn-bg) !important;
+    color: var(--index-btn-color) !important;
+    border-radius:8px;
+    padding: 14px 22px;
+    font-size: 1.2rem;
+    text-decoration:none;
+}
