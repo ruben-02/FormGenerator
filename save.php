@@ -5,9 +5,73 @@ check_login();
 
 $form_name = $_POST['form_name'];
 $prompt = $_POST['prompt'];
+// datasource passed from UI: 'sqlite' or 'mysql'
+$datasource = $_POST['datasource'] ?? 'sqlite';
+if ($datasource !== 'mysql') $datasource = 'sqlite';
 
 // Original generated form HTML (already sanitized in generate.php)
 $form_code = $_POST['form_code'];
+
+// Whitelist-based sanitizer: remove disallowed tags and attributes
+function sanitize_form_html($html) {
+	libxml_use_internal_errors(true);
+	$doc = new DOMDocument();
+	// Wrap fragment so DOMDocument can parse it
+	$doc->loadHTML('<?xml encoding="utf-8" ?><div id="root">' . $html . '</div>');
+	$xpath = new DOMXPath($doc);
+
+	// Remove fully disallowed tags entirely
+	$disallowedTags = ['script','iframe','style','object','embed','link','meta'];
+	foreach ($disallowedTags as $tag) {
+		$nodes = $xpath->query('//' . $tag);
+		foreach ($nodes as $n) {
+			if ($n->parentNode) $n->parentNode->removeChild($n);
+		}
+	}
+
+	// Allowed tags and attributes
+	$allowedTags = ['form','input','textarea','select','label','option','fieldset','legend','button','div','span'];
+	$allowedAttrs = ['id','name','class','type','value','pattern','inputmode','maxlength','placeholder','rows','cols','for','checked','selected','multiple','accept'];
+
+	$root = $doc->getElementById('root');
+	if ($root) {
+		$nodes = $xpath->query('.//*', $root);
+		foreach ($nodes as $node) {
+			if (!($node instanceof DOMElement)) continue;
+			$tag = strtolower($node->tagName);
+
+			// If tag not allowed, remove tag but keep its children
+			if (!in_array($tag, $allowedTags, true)) {
+				while ($node->firstChild) {
+					$node->parentNode->insertBefore($node->firstChild, $node);
+				}
+				$node->parentNode->removeChild($node);
+				continue;
+			}
+
+			// Remove disallowed attributes (event handlers, style, and anything not in whitelist)
+			$attrs = [];
+			foreach ($node->attributes as $a) {
+				$attrs[] = $a->name;
+			}
+			foreach ($attrs as $a) {
+				if (preg_match('/^on/i', $a) || strtolower($a) === 'style' || !in_array(strtolower($a), $allowedAttrs, true)) {
+					$node->removeAttribute($a);
+				}
+			}
+		}
+	}
+
+	// Extract inner HTML of #root
+	$out = '';
+	if ($root) {
+		foreach ($root->childNodes as $child) {
+			$out .= $doc->saveHTML($child);
+		}
+	}
+	libxml_clear_errors();
+	return $out;
+}
 
 // Transform the generated form HTML to inject predictable classes/structure
 // so the saved form will render with the same style as the preview.
@@ -93,12 +157,24 @@ function transform_form_html($html) {
 	return $htmlOut;
 }
 
+$form_code = sanitize_form_html($form_code);
 $form_code = transform_form_html($form_code);
 
 
 $username = $_SESSION['username'];
-$stmt = $db->prepare("INSERT INTO forms (name, prompt, form_code, username) VALUES (?, ?, ?, ?)");
-$stmt->execute([$form_name, $prompt, $form_code, $username]);
+$warn = null;
+if ($datasource === 'mysql') {
+	include_once __DIR__ . '/includes/config.php';
+	$mysql = get_mysql_pdo();
+	if (!$mysql) {
+		// MySQL not configured/available -> fallback to sqlite
+		$warn = 'MySQL not available on server; saving to SQLite instead.';
+		$datasource = 'sqlite';
+	}
+}
+
+$stmt = $db->prepare("INSERT INTO forms (name, prompt, form_code, username, datasource) VALUES (?, ?, ?, ?, ?)");
+$stmt->execute([$form_name, $prompt, $form_code, $username, $datasource]);
 $form_id = $db->lastInsertId();
 
 $updated_code = str_replace("TEMP_ID", $form_id, $form_code);
@@ -112,7 +188,9 @@ if ((!empty($_POST['ajax']) && $_POST['ajax'] == '1') || (!empty($_SERVER['HTTP_
 
 if ($isAjax) {
 	header('Content-Type: application/json');
-	echo json_encode(['success' => true, 'id' => $form_id]);
+	$response = ['success' => true, 'id' => $form_id];
+	if (!empty($warn)) $response['warn'] = $warn;
+	echo json_encode($response);
 	exit;
 } else {
 	echo "<h2>Form Saved Successfully!</h2>";

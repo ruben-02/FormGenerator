@@ -13,6 +13,7 @@ if (empty($GEMINI_MODEL)) {
 }
 
 
+$datasource = $_POST['datasource'] ?? 'sqlite';
 $form_name = $_POST['form_name'] ?? '';
 $prompt    = $_POST['prompt'] ?? '';
 $refine    = $_POST['refine'] ?? '';
@@ -148,6 +149,7 @@ if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
         </div>
           <!-- Refine prompt UI -->
             <form id="refine-form" method="post" action="generate.php" style="margin-bottom:18px;">
+                <input type="hidden" name="datasource" value="<?= htmlspecialchars($datasource) ?>">
                 <input type="hidden" name="form_name" value="<?= htmlspecialchars($form_name) ?>">
                 <input type="hidden" name="prompt" value="<?= htmlspecialchars($_POST['prompt'] ?? $prompt) ?>">
                 <input type="hidden" name="prev_form_code" value="<?= htmlspecialchars($form_code) ?>">
@@ -181,6 +183,7 @@ if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
             </div>
 
             <form id="save-form" class="inline-form" method="post" action="save.php">
+                <input type="hidden" name="datasource" value="<?= htmlspecialchars($datasource) ?>">
                 <input type="hidden" name="form_name" value="<?= htmlspecialchars($form_name) ?>">
                 <input type="hidden" name="prompt" value="<?= htmlspecialchars($prompt) ?>">
                 <textarea name="form_code" hidden><?= htmlspecialchars($form_code) ?></textarea>
@@ -209,6 +212,7 @@ if (isset($result['candidates'][0]['content']['parts'][0]['text'])) {
                     }).then(r => r.json()).then(resp => {
                         if (resp && resp.success) {
                             // show simple alert then redirect
+                            if (resp.warn) alert('Warning: ' + resp.warn);
                             alert('Form saved successfully');
                             window.location.href = 'forms.php';
                         } else {

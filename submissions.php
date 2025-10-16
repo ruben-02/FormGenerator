@@ -10,9 +10,26 @@ if (!$form_id) {
 
 // AJAX endpoint for submissions list
 if (isset($_GET['list']) && $_GET['list'] == '1') {
-    $stmt = $db->prepare("SELECT id, created_at FROM form_submissions WHERE form_id = ? ORDER BY created_at DESC");
+    // determine datasource
+    $stmt = $db->prepare("SELECT datasource FROM forms WHERE id = ?");
     $stmt->execute([$form_id]);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $datasource = $row['datasource'] ?? 'sqlite';
+
+    if ($datasource === 'mysql') {
+        include_once __DIR__ . '/includes/config.php';
+        $mysql = get_mysql_pdo();
+        $rows = [];
+        if ($mysql) {
+            $table = 'form_' . intval($form_id) . '_submissions';
+            $q = $mysql->query("SELECT id, created_at FROM `" . $table . "` ORDER BY created_at DESC");
+            if ($q) $rows = $q->fetchAll(PDO::FETCH_ASSOC);
+        }
+    } else {
+        $stmt = $db->prepare("SELECT id, created_at FROM form_submissions WHERE form_id = ? ORDER BY created_at DESC");
+        $stmt->execute([$form_id]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
     header('Content-Type: application/json');
     echo json_encode($rows);
     exit;
@@ -20,12 +37,28 @@ if (isset($_GET['list']) && $_GET['list'] == '1') {
 // AJAX endpoint for single submission view
 if (isset($_GET['view']) && is_numeric($_GET['view'])) {
     $sub_id = intval($_GET['view']);
-    $stmt = $db->prepare("SELECT submission FROM form_submissions WHERE id = ? AND form_id = ?");
-    $stmt->execute([$sub_id, $form_id]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $db->prepare("SELECT datasource FROM forms WHERE id = ?");
+    $stmt->execute([$form_id]);
+    $r = $stmt->fetch(PDO::FETCH_ASSOC);
+    $datasource = $r['datasource'] ?? 'sqlite';
     $data = [];
-    if ($row && $row['submission']) {
-        $data = json_decode($row['submission'], true);
+    if ($datasource === 'mysql') {
+        include_once __DIR__ . '/includes/config.php';
+        $mysql = get_mysql_pdo();
+        if ($mysql) {
+            $table = 'form_' . intval($form_id) . '_submissions';
+            $s = $mysql->prepare("SELECT submission FROM `" . $table . "` WHERE id = ?");
+            $s->execute([$sub_id]);
+            $row = $s->fetch(PDO::FETCH_ASSOC);
+            if ($row && $row['submission']) $data = json_decode($row['submission'], true);
+        }
+    } else {
+        $stmt = $db->prepare("SELECT submission FROM form_submissions WHERE id = ? AND form_id = ?");
+        $stmt->execute([$sub_id, $form_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && $row['submission']) {
+            $data = json_decode($row['submission'], true);
+        }
     }
     header('Content-Type: application/json');
     echo json_encode($data);
@@ -41,10 +74,28 @@ if (!$form) {
 }
 
 // Count submissions
-$stmt = $db->prepare("SELECT COUNT(*) as cnt FROM form_submissions WHERE form_id = ?");
+$stmt = $db->prepare("SELECT datasource FROM forms WHERE id = ?");
 $stmt->execute([$form_id]);
-$countRow = $stmt->fetch(PDO::FETCH_ASSOC);
-$count = (int)($countRow['cnt'] ?? 0);
+$r = $stmt->fetch(PDO::FETCH_ASSOC);
+$datasource = $r['datasource'] ?? 'sqlite';
+$count = 0;
+if ($datasource === 'mysql') {
+    include_once __DIR__ . '/includes/config.php';
+    $mysql = get_mysql_pdo();
+    if ($mysql) {
+        $table = 'form_' . intval($form_id) . '_submissions';
+        try {
+            $q = $mysql->query("SELECT COUNT(*) as cnt FROM `" . $table . "`");
+            $cr = $q->fetch(PDO::FETCH_ASSOC);
+            $count = (int)($cr['cnt'] ?? 0);
+        } catch (Exception $ex) { $count = 0; }
+    }
+} else {
+    $stmt = $db->prepare("SELECT COUNT(*) as cnt FROM form_submissions WHERE form_id = ?");
+    $stmt->execute([$form_id]);
+    $countRow = $stmt->fetch(PDO::FETCH_ASSOC);
+    $count = (int)($countRow['cnt'] ?? 0);
+}
 
 // If requested as CSV download, stream CSV and exit
 if (isset($_GET['download']) && $_GET['download'] === 'csv') {
@@ -53,10 +104,22 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
 
     $out = fopen('php://output', 'w');
     // Write header row: id, created_at, plus submission keys discovered in first row
-    $stmt = $db->prepare("SELECT submission, id, created_at FROM form_submissions WHERE form_id = ? ORDER BY created_at ASC");
-    $stmt->execute([$form_id]);
-
-    $all = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $all = [];
+    if ($datasource === 'mysql') {
+        include_once __DIR__ . '/includes/config.php';
+        $mysql = get_mysql_pdo();
+        if ($mysql) {
+            $table = 'form_' . intval($form_id) . '_submissions';
+            try {
+                $q = $mysql->query("SELECT submission, id, created_at FROM `" . $table . "` ORDER BY created_at ASC");
+                $all = $q->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $ex) { $all = []; }
+        }
+    } else {
+        $stmt = $db->prepare("SELECT submission, id, created_at FROM form_submissions WHERE form_id = ? ORDER BY created_at ASC");
+        $stmt->execute([$form_id]);
+        $all = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
     $fields = [];
     foreach ($all as $r) {
         $data = json_decode($r['submission'], true);
@@ -91,9 +154,11 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
         <meta name="viewport" content="width=device-width,initial-scale=1">
         <title>Submissions for <?= htmlspecialchars($form['name']) ?></title>
         <link rel="stylesheet" href="assets/css/style.css">
+        <link rel="stylesheet" href="assets/css/index-buttons.css">
         <style>
             html { font-size: 15px; }
         </style>
+        
 </head>
 <body>
     <div class="container">
@@ -101,9 +166,9 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
             <h1 class="title">Submissions: <?= htmlspecialchars($form['name']) ?></h1>
             <div style="display:flex;align-items:center;gap:12px;">
                 <span class="small">Logged in as <?= htmlspecialchars($_SESSION['fullname'] ?? $_SESSION['username'] ?? '') ?></span>
-                <a class="btn" href="index.php">Create New Forms</a>
+                <a class="new-btn" href="index.php">Create New Forms</a>
              
-                <a class="btn" href="logout.php">Logout</a>
+                <a class="new-btn" href="logout.php">Logout</a>
             </div>
         </div>
 

@@ -356,3 +356,28 @@ textarea{min-height:120px}
 
 /* spinner animation used by chat processing indicator */
 @keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }
+
+/* Login page styles (scoped) */
+.login-wrapper{display:flex;align-items:center;justify-content:center;min-height:80vh;padding:20px}
+.login-container{
+    width:100%;
+    max-width:420px;
+    background:var(--card);
+    border:2px solid #000; /* black border */
+    border-radius:10px;
+    padding:22px;
+    box-shadow:0 8px 24px rgba(15,23,42,0.06);
+}
+.login-top{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:14px}
+.login-logo-img{width:64px;height:64px;border-radius:8px;object-fit:cover}
+.login-brand{font-size:1.1rem;font-weight:700;color:#0b1220}
+.login-sub{font-size:0.92rem;color:var(--muted)}
+.login-form{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.login-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:0.95rem}
+.login-submit{background:#000;color:#fff;padding:10px 12px;border-radius:8px;border:none;cursor:pointer;font-weight:600}
+.login-note{margin-top:10px;font-size:0.92rem;color:var(--muted);text-align:center}
+
+@media (max-width:520px){
+    .login-container{padding:16px;margin:8px}
+    .login-logo-img{width:56px;height:56px}
+}

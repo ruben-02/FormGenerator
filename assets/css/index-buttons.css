@@ -1,0 +1,34 @@
+/* Page-scoped button/link styling for index.php */
+body { --index-btn-bg: #000; --index-btn-color: #fff; }
+
+/* Header links: Create New Forms, View Saved Forms, Logout, MySQL Connect button */
+.header .new-btn {
+    background: var(--index-btn-bg) !important;
+    color: var(--index-btn-color) !important;
+    border-radius:8px;
+    padding:8px 12px;
+    text-decoration:none;
+}
+
+/* The main Generate Form submit */
+.card form .btn[type="submit"] {
+    background: var(--index-btn-bg) !important;
+    color: var(--index-btn-color) !important;
+    border: none !important;
+}
+
+/* Modal connect button */
+#mysql-connect {
+    background: var(--index-btn-bg) !important;
+    color: var(--index-btn-color) !important;
+    border: none !important;
+    padding:8px 12px;
+    border-radius:6px;
+}
+
+/* Keep secondary buttons muted */
+.btn.secondary, #mysql-close, #mysql-disconnect { background:#f1f5f9 !important; color:var(--muted) !important; border:1px solid #e6eef8 !important; }
+
+/* Hover/focus */
+.header .new-btn:hover, .card form .btn:hover, #mysql-connect:hover { opacity:0.92 }
+.header .new-btn:focus, .card form .btn:focus, #mysql-connect:focus { outline:3px solid rgba(0,0,0,0.12); outline-offset:2px }

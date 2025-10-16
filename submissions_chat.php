@@ -21,9 +21,25 @@ if (!$form_id || $query === '') {
 }
 
 // fetch submissions for the form (limit to last 200 rows to avoid huge payloads)
-$stmt = $db->prepare("SELECT submission, created_at FROM form_submissions WHERE form_id = ? ORDER BY created_at DESC LIMIT 200");
+$stmt = $db->prepare("SELECT datasource FROM forms WHERE id = ?");
 $stmt->execute([$form_id]);
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$r = $stmt->fetch(PDO::FETCH_ASSOC);
+$datasource = $r['datasource'] ?? 'sqlite';
+$rows = [];
+if ($datasource === 'mysql') {
+    $mysql = get_mysql_pdo();
+    if ($mysql) {
+        $table = 'form_' . intval($form_id) . '_submissions';
+        try {
+            $q = $mysql->query("SELECT submission, created_at FROM `" . $table . "` ORDER BY created_at DESC LIMIT 200");
+            $rows = $q->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $ex) { $rows = []; }
+    }
+} else {
+    $stmt = $db->prepare("SELECT submission, created_at FROM form_submissions WHERE form_id = ? ORDER BY created_at DESC LIMIT 200");
+    $stmt->execute([$form_id]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 $submissions = [];
 foreach ($rows as $r) {

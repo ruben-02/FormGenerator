@@ -182,8 +182,46 @@ if (!empty($_FILES)) {
 
 // Save submission JSON into DB (column 'submission')
 $submission = json_encode($submissionArr);
-$stmt = $db->prepare("INSERT INTO form_submissions (form_id, submission) VALUES (?, ?)");
-$stmt->execute([intval($form_id), $submission]);
+// Determine datasource for this form
+$stmt = $db->prepare("SELECT datasource FROM forms WHERE id = ?");
+$stmt->execute([intval($form_id)]);
+$row = $stmt->fetch(PDO::FETCH_ASSOC);
+$datasource = $row['datasource'] ?? 'sqlite';
+
+if ($datasource === 'mysql') {
+    // Try to insert into MySQL (store JSON in a submissions table named form_{id}_submissions)
+    include_once __DIR__ . '/includes/config.php';
+    $mysql = get_mysql_pdo();
+    if ($mysql) {
+        $table = 'form_' . intval($form_id) . '_submissions';
+        try {
+            // Create table if not exists
+            $createSql = "CREATE TABLE IF NOT EXISTS `" . $table . "` (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                submission LONGTEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) CHARSET=utf8mb4";
+            $mysql->exec($createSql);
+            $ins = $mysql->prepare("INSERT INTO `" . $table . "` (submission) VALUES (?)");
+            $ins->execute([$submission]);
+        } catch (Exception $ex) {
+            // Log the error and fallback to sqlite to avoid data loss
+            $logDir = __DIR__ . '/logs';
+            if (!is_dir($logDir)) @mkdir($logDir, 0755, true);
+            $msg = date('c') . " - MySQL insert failed for form_id {$form_id}: " . $ex->getMessage() . "\n";
+            @file_put_contents($logDir . '/mysql_errors.log', $msg, FILE_APPEND);
+            $stmt = $db->prepare("INSERT INTO form_submissions (form_id, submission) VALUES (?, ?)");
+            $stmt->execute([intval($form_id), $submission]);
+        }
+    } else {
+        // fallback to sqlite if mysql not configured
+        $stmt = $db->prepare("INSERT INTO form_submissions (form_id, submission) VALUES (?, ?)");
+        $stmt->execute([intval($form_id), $submission]);
+    }
+} else {
+    $stmt = $db->prepare("INSERT INTO form_submissions (form_id, submission) VALUES (?, ?)");
+    $stmt->execute([intval($form_id), $submission]);
+}
 
 // Simple thank you page for public users
 ?>
