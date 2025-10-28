@@ -27,6 +27,8 @@ if (empty($_SESSION['csrf_token'])) {
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title><?= htmlspecialchars($form['name']) ?></title>
     <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/index-buttons.css">
 </head>
 <body>
     <div class="container">
@@ -34,8 +36,8 @@ if (empty($_SESSION['csrf_token'])) {
             <h1 class="title"><?= htmlspecialchars($form['name']) ?></h1>
             <div style="display:flex;align-items:center;gap:12px;">
                 <span class="small">Logged in as <?= htmlspecialchars($_SESSION['fullname'] ?? $_SESSION['username'] ?? '') ?></span>
-                <a class="btn" href="forms.php">Back to Saved Forms</a>
-                <a class="btn" href="logout.php">Logout</a>
+                <a class="new-btn" href="forms.php">Back to Saved Forms</a>
+                <a class="new-btn" href="logout.php">Logout</a>
             </div>
         </div>
 

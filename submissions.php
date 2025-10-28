@@ -153,8 +153,10 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width,initial-scale=1">
         <title>Submissions for <?= htmlspecialchars($form['name']) ?></title>
-        <link rel="stylesheet" href="assets/css/style.css">
-        <link rel="stylesheet" href="assets/css/index-buttons.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/index-buttons.css">
+    <!-- Bootstrap (used for table rendering in chat mode) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
             html { font-size: 15px; }
         </style>
@@ -179,33 +181,39 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
             <div style="margin-top:12px;display:flex;gap:12px;align-items:center">
                 <?php if ($count > 0): ?>
                     <button id="download-csv" class="new-btn">Download CSV</button>
-                    <button id="view-submissions" class="btn secondary">View Submissions</button>
+                    <button id="view-submissions" class="new-btn">View Submissions</button>
                 <?php else: ?>
-                    <button class="btn secondary" disabled>No submissions</button>
+                    <button class="new-btn" disabled>No submissions</button>
                 <?php endif; ?>
                 <a class="new-btn" href="forms.php">Back to Saved Forms</a>
             </div>
             <div id="msg" style="margin-top:12px;display:none;color:green">CSV download started.</div>
 
             <!-- Submissions List Modal -->
-            <div id="submissions-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
-                <div style="background:white;padding:24px;border-radius:10px;min-width:340px;max-width:90vw;max-height:80vh;overflow:auto;">
-                    <h3>Submissions List</h3>
-                    <button id="close-modal" class="btn secondary" style="float:right;margin-top:-32px;">Close</button>
-                    <table style="width:100%;margin-top:18px;border-collapse:collapse;">
-                        <thead>
-                            <tr><th>ID</th><th>Date</th><th>View</th></tr>
-                        </thead>
-                        <tbody id="submissions-list"></tbody>
-                    </table>
-                    <div id="submission-detail" style="margin-top:24px;"></div>
+            <div id="submissions-modal" class="submissions-modal" aria-hidden="true">
+                <div class="submissions-dialog">
+                    <div class="submissions-dialog-header">
+                        <h3>Submissions List</h3>
+                        <button id="close-modal" class="btn secondary close-btn">Close</button>
+                    </div>
+                    <div class="submissions-dialog-body">
+                        <div class="table-responsive" style="margin-top:12px;">
+                            <table class="table table-sm" style="width:100%;margin-top:6px;border-collapse:collapse;">
+                                <thead>
+                                    <tr><th>ID</th><th>Date</th><th>View</th></tr>
+                                </thead>
+                                <tbody id="submissions-list"></tbody>
+                            </table>
+                        </div>
+                        <div id="submission-detail" class="submission-detail" style="margin-top:16px;"></div>
+                    </div>
                 </div>
             </div>
 
             <!-- Chatbot UI -->
             <div class="card" style="margin-top:18px;">
                 <h3>Query submissions (Chat)</h3>
-                <div id="chat-area" style="height:420px;display:flex;flex-direction:column;overflow:hidden;border:1px solid #eef6ff;padding:12px;border-radius:8px;margin-top:12px;background:#fbfeff">
+                <div id="chat-area" class="chat-area">
                     <div id="chat-history" style="flex:1;overflow:auto;padding-right:6px"></div>
                     <div id="chat-processing" style="display:none;margin-top:8px;align-items:center;gap:8px;color:var(--muted)">
                         <svg id="chat-spinner" width="20" height="20" viewBox="0 0 50 50" style="margin-right:8px;animation:spin 1s linear infinite"><circle cx="25" cy="25" r="20" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" stroke-dasharray="31.4 31.4"/></svg>
@@ -213,11 +221,20 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
                     </div>
                     <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
                         <textarea id="chat-input" placeholder="Ask about the submissions (e.g., 'How many submitted yes to question X?')" style="width:100%;min-height:100px;padding:12px;border-radius:8px;border:1px solid #dbe7f5"></textarea>
-                        <div style="display:flex;gap:8px;align-items:center">
-                            <button id="chat-send" class="new-btn">Submit</button>
-                            <button id="chat-clear" class="btn secondary" type="button">Clear</button>
-                            <button id="chat-download" class="btn secondary" type="button">Download Chat</button>
-                            <span class="small" id="chat-status" style="margin-left:8px;color:var(--muted)"></span>
+                        <div class="chat-controls">
+                            <label for="chat-mode" class="small" style="margin-right:6px;align-self:center">Output:</label>
+                                <select id="chat-mode" class="chat-mode">
+                                <option value="">Select...</option>
+                                <option value="insight">Insight</option>
+                                <option value="graph">Graph</option>
+                                <option value="table">Table</option>
+                            </select>
+                            <div class="chat-action-buttons">
+                                <button id="chat-send" class="new-btn">Submit</button>
+                                <button id="chat-clear" class="new-btn" type="button">Clear</button>
+                                <button id="chat-download" class="new-btn" type="button">Download Chat</button>
+                            </div>
+                            <span class="small chat-status" id="chat-status"></span>
                         </div>
                     </div>
                 </div>
@@ -365,22 +382,57 @@ if (isset($_GET['download']) && $_GET['download'] === 'csv') {
                         if (processing) processing.style.display = 'flex';
                         if (sendBtn) sendBtn.disabled = true;
 
+                        const modeEl = document.getElementById('chat-mode');
+                        const mode = modeEl ? (modeEl.value || '').toLowerCase() : '';
+                        if (!mode) { alert('Please select an output type: Insight, Graph or Table.'); if (processing) processing.style.display = 'none'; if (sendBtn) sendBtn.disabled = false; return; }
+
                         fetch('submissions_chat.php', {
                             method: 'POST',
                             headers: {'Content-Type':'application/x-www-form-urlencoded'},
-                            body: 'form_id=' + encodeURIComponent('<?= $form_id ?>') + '&query=' + encodeURIComponent(q)
+                            body: 'form_id=' + encodeURIComponent('<?= $form_id ?>') + '&query=' + encodeURIComponent(q) + '&mode=' + encodeURIComponent(mode)
                         }).then(r => r.json()).then(data => {
                             if (processing) processing.style.display = 'none';
                             if (sendBtn) sendBtn.disabled = false;
-                            if (data && data.answer) {
-                                appendMessage('bot', data.answer);
-                                lastBotAnswer = data.answer;
-                                status.textContent = 'Done';
-                                setTimeout(()=>{ status.textContent=''; }, 3000);
+                            // graph -> {type:'graph', payload: {...} }
+                            if (data && data.type === 'graph' && data.payload) {
+                                // render Google Chart based on payload
+                                const payload = data.payload;
+                                const containerId = 'chart-' + Date.now();
+                                const wrap = document.createElement('div'); wrap.style.padding='8px'; wrap.style.marginBottom='6px'; wrap.style.borderRadius='6px'; wrap.style.background='#fff'; wrap.style.marginRight='20%';
+                                const div = document.createElement('div'); div.id = containerId; div.style.width='100%'; div.style.height='360px';
+                                wrap.appendChild(div); history.appendChild(wrap); history.scrollTop = history.scrollHeight;
+
+                                function drawChart(){
+                                    try {
+                                        const dataTable = new google.visualization.DataTable();
+                                        (payload.columns||[]).forEach(function(c){ dataTable.addColumn(c.type, c.label); });
+                                        (payload.rows||[]).forEach(function(r){ dataTable.addRow(r); });
+                                        const chartType = payload.chartType || 'ColumnChart';
+                                        const chart = new google.visualization[chartType](document.getElementById(containerId));
+                                        chart.draw(dataTable, payload.options || {});
+                                    } catch (err) { console.error('Chart draw error', err); appendMessage('bot','Chart render error'); }
+                                }
+                                if (window.google && google.charts && google.visualization) { drawChart(); }
+                                else { const s = document.createElement('script'); s.src='https://www.gstatic.com/charts/loader.js'; s.onload = function(){ google.charts.load('current',{'packages':['corechart']}); google.charts.setOnLoadCallback(drawChart); }; document.head.appendChild(s); }
+                                lastBotAnswer = JSON.stringify(payload);
+                                status.textContent = 'Done'; setTimeout(()=>{ status.textContent=''; },3000);
+                            } else if (data && data.type === 'table' && data.payload) {
+                                const payload = data.payload;
+                                const container = document.createElement('div'); container.style.padding='8px'; container.style.marginBottom='6px'; container.style.borderRadius='6px'; container.style.background='#fff'; container.style.marginRight='20%';
+                                const tableId = 'table-' + Date.now();
+                                const html = ['<div class="table-responsive"><table id="'+tableId+'" class="table table-striped table-bordered">','<thead><tr>'+ (payload.headers||[]).map(h=>'<th>'+h+'</th>').join('') +'</tr></thead>','<tbody></tbody></table></div>','<nav><ul class="pagination" id="'+tableId+'-pager"></ul></nav>'];
+                                container.innerHTML = html.join(''); history.appendChild(container);
+                                const rows = payload.rows || [];
+                                const pageSize = payload.pageSize || 10;
+                                function renderPage(p){ const tbody = container.querySelector('#'+tableId+' tbody'); tbody.innerHTML=''; const start=(p-1)*pageSize; const end=Math.min(start+pageSize, rows.length); for(let i=start;i<end;i++){ const tr=document.createElement('tr'); rows[i].forEach(function(cell){ const td=document.createElement('td'); td.textContent = (cell===null? '': String(cell)); tr.appendChild(td); }); tbody.appendChild(tr); } }
+                                function renderPager(){ const pager = container.querySelector('#'+tableId+'-pager'); pager.innerHTML=''; const pages = Math.max(1, Math.ceil(rows.length/pageSize)); for(let p=1;p<=pages;p++){ const li=document.createElement('li'); li.className='page-item'; const a=document.createElement('a'); a.className='page-link'; a.href='#'; a.textContent=p; a.addEventListener('click', function(ev){ ev.preventDefault(); renderPage(p); }); li.appendChild(a); pager.appendChild(li); } }
+                                renderPage(1); renderPager(); history.scrollTop = history.scrollHeight;
+                                lastBotAnswer = JSON.stringify(payload);
+                                status.textContent = 'Done'; setTimeout(()=>{ status.textContent=''; },3000);
+                            } else if (data && data.answer) {
+                                appendMessage('bot', data.answer); lastBotAnswer = data.answer; status.textContent='Done'; setTimeout(()=>{ status.textContent=''; },3000);
                             } else {
-                                appendMessage('bot', 'No answer (error).');
-                                lastBotAnswer = '';
-                                status.textContent = '';
+                                appendMessage('bot', 'No answer (error).'); lastBotAnswer=''; status.textContent='';
                             }
                         }).catch(err => {
                             if (processing) processing.style.display = 'none';

@@ -381,3 +381,66 @@ textarea{min-height:120px}
     .login-container{padding:16px;margin:8px}
     .login-logo-img{width:56px;height:56px}
 }
+
+/* Small black buttons used in lists (Share, Submissions, Delete) */
+.small-black-btn{
+    display:inline-flex;
+    align-items:center;
+    gap: 4px;
+    background:#000;
+    color:#fff !important;
+    padding:6px 8px;
+    font-size:0.85rem;
+    border-radius:6px;
+    border:none;
+    text-decoration:none;
+    cursor:pointer;
+}
+.small-black-btn:hover{opacity:0.92}
+.small-black-btn[disabled]{opacity:0.6;cursor:not-allowed}
+
+/* Modal styles for confirmation dialogs used across the app */
+.app-modal-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.45);opacity:0;pointer-events:none;transition:opacity .18s ease}
+.app-modal-overlay.visible{opacity:1;pointer-events:auto}
+.app-modal-box{background:var(--card);border-radius:10px;max-width:520px;width:92%;padding:16px;box-shadow:0 12px 36px rgba(2,6,23,0.32);border:1px solid rgba(15,23,42,0.06)}
+.app-modal-header h3{margin:0;font-size:1.05rem;color:#0b1220}
+.app-modal-body{margin-top:8px;color:var(--muted);white-space:pre-wrap}
+.app-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.app-modal-actions .btn{padding:8px 12px;border-radius:8px}
+.app-modal-actions .small-black-btn{padding:7px 10px}
+
+@media (max-width:520px){
+    .app-modal-box{padding:12px}
+    .app-modal-actions{flex-direction:column;align-items:stretch}
+}
+
+/* Submissions modal (replaces inline styles in submissions.php) */
+.submissions-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);z-index:9999}
+.submissions-modal[aria-hidden="false"],.submissions-modal.visible{display:flex}
+.submissions-dialog{background:var(--card);padding:20px;border-radius:10px;min-width:320px;max-width:92vw;max-height:84vh;overflow:auto;box-shadow:0 10px 28px rgba(2,6,23,0.2)}
+.submissions-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.submissions-dialog .close-btn{margin-left:8px}
+.submission-detail{word-break:break-word}
+
+/* Chat area responsive layout */
+.chat-area{height:420px;display:flex;flex-direction:column;overflow:hidden;border:1px solid #eef6ff;padding:12px;border-radius:8px;margin-top:12px;background:#fbfeff}
+.chat-area #chat-history{flex:1;overflow:auto;padding-right:6px}
+.chat-area textarea{width:100%;min-height:100px;padding:12px;border-radius:8px;border:1px solid #dbe7f5}
+
+.chat-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.chat-mode{padding:8px;border-radius:8px;border:1px solid #dbe7f5;min-width:120px}
+.chat-action-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.chat-status{margin-left:6px;color:var(--muted);align-self:center}
+
+@media (max-width:720px){
+    .chat-area{height:auto}
+    .chat-controls{flex-direction:column;align-items:stretch}
+    .chat-mode{width:100%;min-width:0}
+    .chat-action-buttons{width:100%;justify-content:space-between}
+    .chat-status{margin-left:0;margin-top:6px}
+    .submissions-dialog{padding:14px}
+}
+
+/* Small adjustments for the table in modal */
+.submissions-dialog table thead th{font-weight:600}
+.submissions-dialog table td, .submissions-dialog table th{padding:6px;border-top:1px solid #f1f7ff}

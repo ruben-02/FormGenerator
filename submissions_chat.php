@@ -83,7 +83,18 @@ foreach ($submissions as $i => $s) {
     }
 }
 
-$prompt = $summary . "\nAdmin query: " . $query . "\nAnswer succinctly and include examples or counts when appropriate.";
+$mode = trim(strtolower($_POST['mode'] ?? 'insight'));
+$allowed = ['insight','graph','table'];
+if (!in_array($mode, $allowed, true)) $mode = 'insight';
+
+$prompt = $summary . "\nAdmin query: " . $query . "\n";
+if ($mode === 'insight') {
+    $prompt .= "Answer succinctly and include examples or counts when appropriate. Respond in plain text, no markdown.";
+} elseif ($mode === 'graph') {
+    $prompt .= "SYSTEM INSTRUCTION: The user requested a 'graph' output. Respond with JSON only (no explanatory text or markdown) with keys: chartType (string, e.g., 'ColumnChart' or 'LineChart'), columns (array of objects {label,type} where type is 'string' or 'number'), rows (array of arrays matching columns), options (object for chart options). Example: {\"chartType\":\"ColumnChart\",\"columns\":[{\"label\":\"Answer\",\"type\":\"string\"},{\"label\":\"Count\",\"type\":\"number\"}],\"rows\":[[\"Yes\",12],[\"No\",5]],\"options\":{\"title\":\"Responses\"}}. Do not include any other text.";
+} else {
+    $prompt .= "SYSTEM INSTRUCTION: The user requested a 'table' output. Respond with JSON only (no explanatory text or markdown) with keys: headers (array of column names), rows (array of arrays), and optional pageSize (number). Example: {\"headers\":[\"Field\",\"Value\"],\"rows\":[[\"A\",\"1\"],[\"B\",\"2\"]],\"pageSize\":10}. Do not include any other text.";
+}
 
 // Call Gemini REST API (Generative Language API)
 $endpoint = "https://generativelanguage.googleapis.com/v1/$GEMINI_MODEL:generateContent?key=$GEMINI_API_KEY";
@@ -144,8 +155,51 @@ if (isset($json['candidates'][0]['content']['parts'][0]['text'])) {
     $answer = json_encode($json);
 }
 
+// Clean the assistant output to remove markdown and unwanted symbols (keep SQL extraction above intact)
+function clean_assistant_text($text){
+    if (!is_string($text)) return '';
+    $clean = $text;
+    // Remove fenced code blocks but keep their content
+    $clean = preg_replace('/```[a-zA-Z0-9_-]*\n(.*?)```/is', '$1', $clean);
+    // Remove any remaining backticks
+    $clean = str_replace('`', '', $clean);
+    // Remove asterisks used for emphasis
+    $clean = str_replace('*', '', $clean);
+    // Remove common bullet characters at line starts
+    $clean = preg_replace('/^[\s]*[\-\*\+•]\s+/m', '', $clean);
+    // Remove visual separators like --- or *** on their own lines
+    $clean = preg_replace('/^[\-\*]{3,}\s*$/m', '', $clean);
+    // Normalize multiple blank lines
+    $clean = preg_replace("/\n{3,}/", "\n\n", $clean);
+    // Trim whitespace
+    $clean = trim($clean);
+    return $clean;
+}
+
+$clean_answer = clean_assistant_text($answer);
+
+$response = ['sql_result' => $sql_result];
+if ($mode === 'graph' || $mode === 'table') {
+    // Try to extract JSON payload from assistant output (strip code fences first)
+    $maybe = $answer;
+    $maybe = preg_replace('/^\s*```(?:json)?\s*/i', '', $maybe);
+    $maybe = preg_replace('/\s*```\s*$/', '', $maybe);
+    $decoded = json_decode($maybe, true);
+    if (is_array($decoded)) {
+        $response['type'] = $mode;
+        $response['payload'] = $decoded;
+    } else {
+        // fallback to plain insight text
+        $response['type'] = 'insight';
+        $response['answer'] = $clean_answer;
+    }
+} else {
+    $response['type'] = 'insight';
+    $response['answer'] = $clean_answer;
+}
+
 header('Content-Type: application/json');
-echo json_encode(['answer' => $answer, 'sql_result' => $sql_result]);
+echo json_encode($response);
 exit;
 
 ?>
